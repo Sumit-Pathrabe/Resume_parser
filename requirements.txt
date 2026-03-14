@@ -1,0 +1,5 @@
+streamlit
+spacy
+pdfplumber
+python-docx
+pandas
