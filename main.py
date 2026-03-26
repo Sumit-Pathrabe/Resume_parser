@@ -31,7 +31,7 @@ def load_nlp_model():
 nlp = load_nlp_model()
 
 # ─────────────────────────────────────────────
-# Predefined Skill Dictionary
+# Predefined Skill Dictionary (Expanded)
 # ─────────────────────────────────────────────
 SKILLS_DB = [
     # Programming Languages
@@ -45,15 +45,17 @@ SKILLS_DB = [
     "computer vision", "data science", "data analysis", "data visualization",
     "tensorflow", "pytorch", "keras", "scikit-learn", "opencv", "hugging face",
     "bert", "transformers", "pandas", "numpy", "matplotlib", "seaborn", "plotly",
-    # Databases
+    "xgboost", "genai", "llm", "ensemble learning",
+    # Databases & Data Engineering
     "sql", "mysql", "postgresql", "mongodb", "sqlite", "oracle", "redis",
-    "firebase", "cassandra", "elasticsearch",
+    "firebase", "cassandra", "elasticsearch", "apache kafka", "kafka", 
+    "pyspark", "spark", "delta lake", "databricks", "etl", "hadoop",
     # Cloud & DevOps
     "aws", "azure", "gcp", "docker", "kubernetes", "git", "github", "gitlab",
-    "jenkins", "ci/cd", "terraform", "linux", "bash",
+    "jenkins", "ci/cd", "terraform", "linux", "ubuntu", "bash",
     # Tools & Others
     "excel", "power bi", "tableau", "jira", "figma", "postman", "rest api",
-    "graphql", "agile", "scrum", "hadoop", "spark", "airflow"
+    "graphql", "agile", "scrum", "airflow"
 ]
 
 # ─────────────────────────────────────────────
@@ -92,109 +94,103 @@ def extract_text(uploaded_file):
 # Text Preprocessing
 # ─────────────────────────────────────────────
 def preprocess_text(text):
-    # Remove excessive whitespace and special characters
     text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'[^\x00-\x7F]+', ' ', text)  # remove non-ASCII
+    text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     return text.strip()
 
 # ─────────────────────────────────────────────
 # Information Extraction Functions
 # ─────────────────────────────────────────────
-
 def extract_name(text, doc):
-    """Extract candidate name using spaCy NER."""
+    words = text.split()
+    if len(words) >= 2:
+        first_line_attempt = " ".join(words[:2])
+        if re.match(r"^[A-Za-z\s\-\.]+$", first_line_attempt):
+            return first_line_attempt.title()
+            
     for ent in doc.ents:
         if ent.label_ == "PERSON":
-            # Usually the first PERSON entity is the candidate
             name = ent.text.strip()
-            if len(name.split()) >= 2:  # full name check
-                return name
-    # Fallback: first line heuristic
-    first_line = text.strip().split("\n")[0].strip()
-    if 2 <= len(first_line.split()) <= 5 and first_line.replace(" ", "").isalpha():
-        return first_line
+            if len(name.split()) >= 2 and name.lower() not in ["apache kafka", "machine learning"]:
+                return name.title()
     return "Not Found"
 
 def extract_email(text):
-    """Extract email using Regex."""
     pattern = r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}'
     matches = re.findall(pattern, text)
     return matches[0] if matches else "Not Found"
 
 def extract_phone(text):
-    """Extract phone number using Regex."""
-    pattern = r'(\+?\d{1,3}[\s\-]?)?(\(?\d{3}\)?[\s\-]?)(\d{3}[\s\-]?\d{4})'
+    pattern = r'\+?\d[\d\s\-()]{7,15}\d'
     matches = re.findall(pattern, text)
     if matches:
-        phone = "".join(["".join(m) for m in matches[:1]])
-        return phone.strip()
+        return matches[0].strip()
     return "Not Found"
 
 def extract_skills(text):
-    """Extract skills using predefined skill dictionary."""
     text_lower = text.lower()
     found_skills = []
     for skill in SKILLS_DB:
-        # Use word boundary matching to avoid partial matches
         pattern = r'\b' + re.escape(skill) + r'\b'
         if re.search(pattern, text_lower):
             found_skills.append(skill.title())
     return list(set(found_skills))
 
-def extract_education(text, doc):
-    """Extract education details using NER + keyword matching."""
+def extract_education(raw_text):
     education_keywords = [
         "bachelor", "master", "phd", "doctorate", "b.sc", "m.sc", "b.tech",
         "m.tech", "mba", "b.e", "m.e", "b.com", "m.com", "diploma",
         "associate", "degree", "university", "college", "institute",
         "school of", "faculty of"
     ]
+    lines = raw_text.split('\n')
     education_lines = []
-    lines = text.split("\n")
+    
     for line in lines:
-        line_lower = line.lower()
-        if any(kw in line_lower for kw in education_keywords):
-            clean_line = line.strip()
-            if clean_line and len(clean_line) > 5:
+        clean_line = line.strip()
+        if any(kw in clean_line.lower() for kw in education_keywords):
+            if len(clean_line) > 5:
                 education_lines.append(clean_line)
 
-    # Also capture ORG entities near education context
-    orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
+    return education_lines[:10] if education_lines else ["Not Found"]
 
-    return education_lines[:5] if education_lines else ["Not Found"]
-
-def extract_experience(text):
-    """Extract work experience sections using keyword matching."""
+def extract_experience(raw_text):
     experience_keywords = [
         "experience", "work history", "employment", "internship",
-        "worked at", "working at", "position", "role", "responsibilities"
+        "worked at", "working at", "position", "role", "responsibilities",
+        "projects", "technical projects"
     ]
+    lines = raw_text.split('\n')
     experience_lines = []
-    lines = text.split("\n")
     capture = False
 
     for line in lines:
-        line_lower = line.lower()
-        if any(kw in line_lower for kw in experience_keywords):
+        clean_line = line.strip()
+        if not clean_line:
+            continue
+            
+        if any(kw in clean_line.lower() for kw in experience_keywords):
             capture = True
+        
         if capture:
-            clean = line.strip()
-            if clean:
-                experience_lines.append(clean)
-            if len(experience_lines) > 10:
+            if len(clean_line) > 10: 
+                experience_lines.append(clean_line)
+            if len(experience_lines) > 25: 
                 break
 
     return experience_lines if experience_lines else ["Not Found"]
 
-def extract_linkedin(text):
-    pattern = r'(https?://)?(www\.)?linkedin\.com/in/[A-Za-z0-9\-_%]+'
-    match = re.search(pattern, text)
-    return match.group(0) if match else "Not Found"
+def extract_linkedin(raw_text):
+    # Grabs absolutely everything until it hits a space, newline, or | symbol
+    pattern = r'(?:https?://)?(?:www\.)?linkedin\.com/in/[^\s\|]+'
+    match = re.search(pattern, raw_text)
+    return match.group(0).rstrip(".,;") if match else "Not Found"
 
-def extract_github(text):
-    pattern = r'(https?://)?(www\.)?github\.com/[A-Za-z0-9\-_%]+'
-    match = re.search(pattern, text)
-    return match.group(0) if match else "Not Found"
+def extract_github(raw_text):
+    # Grabs absolutely everything until it hits a space, newline, or | symbol
+    pattern = r'(?:https?://)?(?:www\.)?github\.com/[^\s\|]+'
+    match = re.search(pattern, raw_text)
+    return match.group(0).rstrip(".,;") if match else "Not Found"
 
 # ─────────────────────────────────────────────
 # Master Parse Function
@@ -203,15 +199,17 @@ def parse_resume(text):
     clean_text = preprocess_text(text)
     doc = nlp(clean_text)
 
+    # Passing 'text' (RAW text) to contact and link extractors ensures
+    # hyphens and special URL characters aren't stripped by the preprocessor!
     result = {
         "Name":       extract_name(clean_text, doc),
-        "Email":      extract_email(clean_text),
-        "Phone":      extract_phone(clean_text),
-        "LinkedIn":   extract_linkedin(clean_text),
-        "GitHub":     extract_github(clean_text),
+        "Email":      extract_email(text),
+        "Phone":      extract_phone(text),
+        "LinkedIn":   extract_linkedin(text),
+        "GitHub":     extract_github(text),
         "Skills":     extract_skills(clean_text),
-        "Education":  extract_education(clean_text, doc),
-        "Experience": extract_experience(clean_text),
+        "Education":  extract_education(text),  
+        "Experience": extract_experience(text), 
     }
     return result
 
@@ -227,32 +225,17 @@ def convert_to_csv(data: dict) -> bytes:
 # Streamlit UI
 # ─────────────────────────────────────────────
 def main():
-    # Header
     st.title("📄 Automated Resume Parser")
     st.markdown("**NLP-powered resume information extractor** | Powered by spaCy & Python")
     st.markdown("---")
 
-    # Sidebar
     with st.sidebar:
         st.header("ℹ️ About")
-        st.info(
-            "This tool automatically extracts key information "
-            "from resumes using NLP techniques including:\n\n"
-            "- Named Entity Recognition (NER)\n"
-            "- Regular Expressions\n"
-            "- Keyword-based Skill Matching"
-        )
+        st.info("This tool automatically extracts key information from resumes using NLP techniques.")
         st.header("📂 Supported Formats")
         st.success("✅ PDF\n\n✅ DOCX\n\n✅ TXT")
-        st.header("🔧 Tech Stack")
-        st.code("Python | spaCy | NLTK\npdfplumber | python-docx\nStreamlit | Pandas")
 
-    # File Upload
-    uploaded_file = st.file_uploader(
-        "Upload your Resume",
-        type=["pdf", "docx", "txt"],
-        help="Drag and drop or click to upload a resume file."
-    )
+    uploaded_file = st.file_uploader("Upload your Resume", type=["pdf", "docx", "txt"])
 
     if uploaded_file is not None:
         st.success(f"✅ File uploaded: **{uploaded_file.name}**")
@@ -261,7 +244,7 @@ def main():
             raw_text = extract_text(uploaded_file)
 
         if not raw_text.strip():
-            st.error("Could not extract text from the file. Please try a different file.")
+            st.error("Could not extract text from the file.")
             return
 
         parsed_data = parse_resume(raw_text)
@@ -269,41 +252,60 @@ def main():
         st.markdown("---")
         st.subheader("📊 Parsed Resume Information")
 
-        # ── Row 1: Contact Info ──────────────────────
+        metric_style = "<p style='font-size:14px; color:gray; margin-bottom:0px;'>{label}</p>"
+        value_style = "<p style='font-size:1.8rem; font-weight:600;'>{value}</p>"
+        link_style = "<a href='{href}' target='_blank' style='font-size:1.4rem; font-weight:600; text-decoration:none; color:#1f77b4;'>{value}</a>"
+
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("👤 Name", parsed_data["Name"])
+            
         with col2:
-            st.metric("📧 Email", parsed_data["Email"])
+            st.markdown(metric_style.format(label="📧 Email"), unsafe_allow_html=True)
+            if parsed_data["Email"] != "Not Found":
+                st.markdown(link_style.format(href=f"mailto:{parsed_data['Email']}", value=parsed_data["Email"]), unsafe_allow_html=True)
+            else:
+                st.markdown(value_style.format(value="Not Found"), unsafe_allow_html=True)
+                
         with col3:
             st.metric("📞 Phone", parsed_data["Phone"])
 
-        # ── Row 2: Social Profiles ───────────────────
+        st.write("") 
+
         col4, col5 = st.columns(2)
         with col4:
-            st.metric("🔗 LinkedIn", parsed_data["LinkedIn"])
+            st.markdown(metric_style.format(label="🔗 LinkedIn"), unsafe_allow_html=True)
+            if parsed_data["LinkedIn"] != "Not Found":
+                url = parsed_data["LinkedIn"]
+                href = url if url.startswith("http") else "https://" + url
+                st.markdown(link_style.format(href=href, value=url), unsafe_allow_html=True)
+            else:
+                st.markdown(value_style.format(value="Not Found"), unsafe_allow_html=True)
+
         with col5:
-            st.metric("🐙 GitHub", parsed_data["GitHub"])
+            st.markdown(metric_style.format(label="🐙 GitHub"), unsafe_allow_html=True)
+            if parsed_data["GitHub"] != "Not Found":
+                url = parsed_data["GitHub"]
+                href = url if url.startswith("http") else "https://" + url
+                st.markdown(link_style.format(href=href, value=url), unsafe_allow_html=True)
+            else:
+                st.markdown(value_style.format(value="Not Found"), unsafe_allow_html=True)
 
         st.markdown("---")
 
-        # ── Skills ────────────────────────────────────
         st.subheader("🛠️ Extracted Skills")
         if parsed_data["Skills"] and parsed_data["Skills"] != ["Not Found"]:
             skill_html = " ".join(
-                [f'<span style="background-color:#1f77b4;color:white;padding:4px 10px;'
-                 f'border-radius:12px;margin:4px;display:inline-block;font-size:14px;">'
-                 f'{skill}</span>'
+                [f'<span style="background-color:#1f77b4;color:white;padding:4px 10px; border-radius:12px;margin:4px;display:inline-block;font-size:14px;">{skill}</span>'
                  for skill in sorted(parsed_data["Skills"])]
             )
             st.markdown(skill_html, unsafe_allow_html=True)
             st.caption(f"Total skills found: **{len(parsed_data['Skills'])}**")
         else:
-            st.warning("No skills detected from the predefined skill list.")
+            st.warning("No skills detected.")
 
         st.markdown("---")
 
-        # ── Education & Experience ────────────────────
         col_edu, col_exp = st.columns(2)
 
         with col_edu:
@@ -312,58 +314,35 @@ def main():
                 st.write(f"• {edu}")
 
         with col_exp:
-            st.subheader("💼 Experience")
+            st.subheader("💼 Experience / Projects")
             for exp in parsed_data["Experience"]:
                 st.write(f"• {exp}")
 
         st.markdown("---")
 
-        # ── Raw Text Expander ─────────────────────────
         with st.expander("📃 View Extracted Raw Text"):
             st.text_area("Raw Resume Text", raw_text, height=300)
 
-        # ── JSON View ─────────────────────────────────
         with st.expander("🧾 View Parsed Data as JSON"):
             st.json(parsed_data)
 
-        # ── Downloads ─────────────────────────────────
         st.markdown("---")
         st.subheader("⬇️ Download Parsed Data")
 
         dl_col1, dl_col2 = st.columns(2)
 
         with dl_col1:
-            csv_data = convert_to_csv(parsed_data)
-            st.download_button(
-                label="📥 Download as CSV",
-                data=csv_data,
-                file_name="parsed_resume.csv",
-                mime="text/csv"
-            )
+            st.download_button(label="📥 Download as CSV", data=convert_to_csv(parsed_data), file_name="parsed_resume.csv", mime="text/csv")
 
         with dl_col2:
-            json_data = json.dumps(parsed_data, indent=4)
-            st.download_button(
-                label="📥 Download as JSON",
-                data=json_data,
-                file_name="parsed_resume.json",
-                mime="application/json"
-            )
+            st.download_button(label="📥 Download as JSON", data=json.dumps(parsed_data, indent=4), file_name="parsed_resume.json", mime="application/json")
 
     else:
-        # Landing placeholder
         st.markdown("###")
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
-            st.image(
-                "https://img.icons8.com/clouds/200/resume.png",
-                use_column_width=True
-            )
-            st.markdown(
-                "<h4 style='text-align:center;color:gray;'>"
-                "Upload a resume above to get started!</h4>",
-                unsafe_allow_html=True
-            )
+            st.image("https://img.icons8.com/clouds/200/resume.png", use_column_width=True)
+            st.markdown("<h4 style='text-align:center;color:gray;'>Upload a resume above to get started!</h4>", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
