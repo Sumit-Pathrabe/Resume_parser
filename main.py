@@ -7,18 +7,14 @@ import re
 import json
 from io import BytesIO
 
-# ─────────────────────────────────────────────
-# Page Configuration
-# ─────────────────────────────────────────────
+
 st.set_page_config(
     page_title="Automated Resume Parser",
     page_icon="📄",
     layout="wide"
 )
 
-# ─────────────────────────────────────────────
-# Load spaCy Model
-# ─────────────────────────────────────────────
+
 @st.cache_resource
 def load_nlp_model():
     try:
@@ -30,9 +26,7 @@ def load_nlp_model():
 
 nlp = load_nlp_model()
 
-# ─────────────────────────────────────────────
-# Predefined Skill Dictionary
-# ─────────────────────────────────────────────
+
 SKILLS_DB = [
     # Programming Languages
     "python", "java", "javascript", "c++", "c#", "c", "r", "swift", "kotlin",
@@ -56,9 +50,7 @@ SKILLS_DB = [
     "graphql", "agile", "scrum", "hadoop", "spark", "airflow"
 ]
 
-# ─────────────────────────────────────────────
-# Text Extraction Functions
-# ─────────────────────────────────────────────
+
 def extract_text_from_pdf(file):
     text = ""
     with pdfplumber.open(file) as pdf:
@@ -88,18 +80,12 @@ def extract_text(uploaded_file):
         st.error("Unsupported file format. Please upload PDF, DOCX, or TXT.")
         return ""
 
-# ─────────────────────────────────────────────
-# Text Preprocessing
-# ─────────────────────────────────────────────
 def preprocess_text(text):
     # Remove excessive whitespace and special characters
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'[^\x00-\x7F]+', ' ', text)  # remove non-ASCII
     return text.strip()
 
-# ─────────────────────────────────────────────
-# Information Extraction Functions
-# ─────────────────────────────────────────────
 
 def extract_name(text, doc):
     """Extract candidate name using spaCy NER."""
@@ -158,7 +144,6 @@ def extract_education(text, doc):
             if clean_line and len(clean_line) > 5:
                 education_lines.append(clean_line)
 
-    # Also capture ORG entities near education context
     orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
 
     return education_lines[:5] if education_lines else ["Not Found"]
@@ -196,9 +181,6 @@ def extract_github(text):
     match = re.search(pattern, text)
     return match.group(0) if match else "Not Found"
 
-# ─────────────────────────────────────────────
-# Master Parse Function
-# ─────────────────────────────────────────────
 def parse_resume(text):
     clean_text = preprocess_text(text)
     doc = nlp(clean_text)
@@ -215,24 +197,18 @@ def parse_resume(text):
     }
     return result
 
-# ─────────────────────────────────────────────
-# CSV Export Helper
-# ─────────────────────────────────────────────
+
 def convert_to_csv(data: dict) -> bytes:
     flat = {k: (", ".join(v) if isinstance(v, list) else v) for k, v in data.items()}
     df = pd.DataFrame([flat])
     return df.to_csv(index=False).encode("utf-8")
 
-# ─────────────────────────────────────────────
-# Streamlit UI
-# ─────────────────────────────────────────────
+
 def main():
-    # Header
     st.title("📄 Automated Resume Parser")
     st.markdown("**NLP-powered resume information extractor** | Powered by spaCy & Python")
     st.markdown("---")
 
-    # Sidebar
     with st.sidebar:
         st.header("ℹ️ About")
         st.info(
@@ -247,7 +223,6 @@ def main():
         st.header("🔧 Tech Stack")
         st.code("Python | spaCy | NLTK\npdfplumber | python-docx\nStreamlit | Pandas")
 
-    # File Upload
     uploaded_file = st.file_uploader(
         "Upload your Resume",
         type=["pdf", "docx", "txt"],
@@ -269,7 +244,6 @@ def main():
         st.markdown("---")
         st.subheader("📊 Parsed Resume Information")
 
-        # ── Row 1: Contact Info ──────────────────────
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("👤 Name", parsed_data["Name"])
@@ -287,7 +261,6 @@ def main():
 
         st.markdown("---")
 
-        # ── Skills ────────────────────────────────────
         st.subheader("🛠️ Extracted Skills")
         if parsed_data["Skills"] and parsed_data["Skills"] != ["Not Found"]:
             skill_html = " ".join(
@@ -303,7 +276,6 @@ def main():
 
         st.markdown("---")
 
-        # ── Education & Experience ────────────────────
         col_edu, col_exp = st.columns(2)
 
         with col_edu:
@@ -318,15 +290,12 @@ def main():
 
         st.markdown("---")
 
-        # ── Raw Text Expander ─────────────────────────
         with st.expander("📃 View Extracted Raw Text"):
             st.text_area("Raw Resume Text", raw_text, height=300)
 
-        # ── JSON View ─────────────────────────────────
         with st.expander("🧾 View Parsed Data as JSON"):
             st.json(parsed_data)
 
-        # ── Downloads ─────────────────────────────────
         st.markdown("---")
         st.subheader("⬇️ Download Parsed Data")
 
@@ -351,7 +320,6 @@ def main():
             )
 
     else:
-        # Landing placeholder
         st.markdown("###")
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
