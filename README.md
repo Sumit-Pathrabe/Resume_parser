@@ -1,5 +1,3 @@
-This is a solid project for a portfolio, especially since you’ve combined NLP with a functional web interface. Here is a clean, professional README.md file tailored for your Resume Parser.
-
 AI-Powered Resume Parser 📄🔍
 An intelligent recruitment tool that automates the extraction of key information from resumes. Built using Natural Language Processing (NLP) and a custom Named Entity Recognition (NER) model to streamline the hiring workflow.
 
