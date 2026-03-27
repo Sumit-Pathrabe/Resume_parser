@@ -7,14 +7,18 @@ import re
 import json
 from io import BytesIO
 
-
+# ─────────────────────────────────────────────
+# Page Configuration
+# ─────────────────────────────────────────────
 st.set_page_config(
     page_title="Automated Resume Parser",
     page_icon="📄",
     layout="wide"
 )
 
-
+# ─────────────────────────────────────────────
+# Load spaCy Model
+# ─────────────────────────────────────────────
 @st.cache_resource
 def load_nlp_model():
     try:
@@ -26,13 +30,9 @@ def load_nlp_model():
 
 nlp = load_nlp_model()
 
-<<<<<<< HEAD
 # ─────────────────────────────────────────────
 # Predefined Skill Dictionary (Expanded)
 # ─────────────────────────────────────────────
-=======
-
->>>>>>> 4d28a7efde90ee0d9a44ce0eda23c4a3eed892b1
 SKILLS_DB = [
     # Programming Languages
     "python", "java", "javascript", "c++", "c#", "c", "r", "swift", "kotlin",
@@ -58,14 +58,23 @@ SKILLS_DB = [
     "graphql", "agile", "scrum", "airflow"
 ]
 
-
+# ─────────────────────────────────────────────
+# Text Extraction Functions
+# ─────────────────────────────────────────────
 def extract_text_from_pdf(file):
     text = ""
     with pdfplumber.open(file) as pdf:
         for page in pdf.pages:
+            # 1. Grab the visible text
             page_text = page.extract_text()
             if page_text:
                 text += page_text + "\n"
+            
+            # 2. Grab the hidden clickable URLs (Fixes the missing hyphen issue)
+            if page.hyperlinks:
+                for link in page.hyperlinks:
+                    if 'uri' in link and link['uri']:
+                        text += link['uri'] + " \n"
     return text
 
 def extract_text_from_docx(file):
@@ -88,18 +97,17 @@ def extract_text(uploaded_file):
         st.error("Unsupported file format. Please upload PDF, DOCX, or TXT.")
         return ""
 
+# ─────────────────────────────────────────────
+# Text Preprocessing
+# ─────────────────────────────────────────────
 def preprocess_text(text):
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     return text.strip()
 
-<<<<<<< HEAD
 # ─────────────────────────────────────────────
 # Information Extraction Functions
 # ─────────────────────────────────────────────
-=======
-
->>>>>>> 4d28a7efde90ee0d9a44ce0eda23c4a3eed892b1
 def extract_name(text, doc):
     words = text.split()
     if len(words) >= 2:
@@ -151,11 +159,7 @@ def extract_education(raw_text):
             if len(clean_line) > 5:
                 education_lines.append(clean_line)
 
-<<<<<<< HEAD
     return education_lines[:10] if education_lines else ["Not Found"]
-=======
-    orgs = [ent.text for ent in doc.ents if ent.label_ == "ORG"]
->>>>>>> 4d28a7efde90ee0d9a44ce0eda23c4a3eed892b1
 
 def extract_experience(raw_text):
     experience_keywords = [
@@ -184,17 +188,30 @@ def extract_experience(raw_text):
     return experience_lines if experience_lines else ["Not Found"]
 
 def extract_linkedin(raw_text):
-    # Grabs absolutely everything until it hits a space, newline, or | symbol
     pattern = r'(?:https?://)?(?:www\.)?linkedin\.com/in/[^\s\|]+'
-    match = re.search(pattern, raw_text)
-    return match.group(0).rstrip(".,;") if match else "Not Found"
+    matches = re.findall(pattern, raw_text)
+    if matches:
+        # Prioritize the actual embedded URL (which usually starts with http)
+        for m in matches:
+            if m.startswith("http"):
+                return m.rstrip(".,;")
+        return matches[0].rstrip(".,;")
+    return "Not Found"
 
 def extract_github(raw_text):
-    # Grabs absolutely everything until it hits a space, newline, or | symbol
     pattern = r'(?:https?://)?(?:www\.)?github\.com/[^\s\|]+'
-    match = re.search(pattern, raw_text)
-    return match.group(0).rstrip(".,;") if match else "Not Found"
+    matches = re.findall(pattern, raw_text)
+    if matches:
+        # Prioritize the actual embedded URL
+        for m in matches:
+            if m.startswith("http"):
+                return m.rstrip(".,;")
+        return matches[0].rstrip(".,;")
+    return "Not Found"
 
+# ─────────────────────────────────────────────
+# Master Parse Function
+# ─────────────────────────────────────────────
 def parse_resume(text):
     clean_text = preprocess_text(text)
     doc = nlp(clean_text)
@@ -213,13 +230,17 @@ def parse_resume(text):
     }
     return result
 
-
+# ─────────────────────────────────────────────
+# CSV Export Helper
+# ─────────────────────────────────────────────
 def convert_to_csv(data: dict) -> bytes:
     flat = {k: (", ".join(v) if isinstance(v, list) else v) for k, v in data.items()}
     df = pd.DataFrame([flat])
     return df.to_csv(index=False).encode("utf-8")
 
-
+# ─────────────────────────────────────────────
+# Streamlit UI
+# ─────────────────────────────────────────────
 def main():
     st.title("📄 Automated Resume Parser")
     st.markdown("**NLP-powered resume information extractor** | Powered by spaCy & Python")
@@ -231,15 +252,7 @@ def main():
         st.header("📂 Supported Formats")
         st.success("✅ PDF\n\n✅ DOCX\n\n✅ TXT")
 
-<<<<<<< HEAD
     uploaded_file = st.file_uploader("Upload your Resume", type=["pdf", "docx", "txt"])
-=======
-    uploaded_file = st.file_uploader(
-        "Upload your Resume",
-        type=["pdf", "docx", "txt"],
-        help="Drag and drop or click to upload a resume file."
-    )
->>>>>>> 4d28a7efde90ee0d9a44ce0eda23c4a3eed892b1
 
     if uploaded_file is not None:
         st.success(f"✅ File uploaded: **{uploaded_file.name}**")
@@ -256,13 +269,10 @@ def main():
         st.markdown("---")
         st.subheader("📊 Parsed Resume Information")
 
-<<<<<<< HEAD
         metric_style = "<p style='font-size:14px; color:gray; margin-bottom:0px;'>{label}</p>"
         value_style = "<p style='font-size:1.8rem; font-weight:600;'>{value}</p>"
         link_style = "<a href='{href}' target='_blank' style='font-size:1.4rem; font-weight:600; text-decoration:none; color:#1f77b4;'>{value}</a>"
 
-=======
->>>>>>> 4d28a7efde90ee0d9a44ce0eda23c4a3eed892b1
         col1, col2, col3 = st.columns(3)
         with col1:
             st.metric("👤 Name", parsed_data["Name"])
