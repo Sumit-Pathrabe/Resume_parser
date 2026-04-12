@@ -22,6 +22,12 @@ Frontend: Streamlit
 
 File Processing: PyMuPDF (fitz) / python-docx
 
+Future Scope - 
+Can add ats based scoring 
+Add AI for suggestions in resume creation
+Adding a marking scheme for specific words
+
+
 📂 Project Structure
 Plaintext
 ├── app.py                # Main Streamlit application
